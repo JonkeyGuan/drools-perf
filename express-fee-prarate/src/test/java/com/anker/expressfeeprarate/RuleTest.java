@@ -70,7 +70,7 @@ public class RuleTest {
         session.insert(noneBGHcInfo);
         String[] bgPdt = { "Battery", "Cable", "Headphone", "xxx", "yyy" };
         for (int i = 0; i < 5; i++) {
-            HcInfo hcInfo = new HcInfo("202107", i + 1, 0, bgPdt[i % 5] + "" + i % 100, 0, 0);
+            HcInfo hcInfo = new HcInfo("202107", i + 1, 0, bgPdt[i % 5], 0, 0);
             session.insert(hcInfo);
         }
     }
@@ -80,7 +80,7 @@ public class RuleTest {
         String[] marketplace = { "aliexpress", "amazon" };
         for (int i = 0; i < count; i++) {
             OrderRevenue orderRevenue = new OrderRevenue("202107", marketplace[i % 2] + "" + i % 100,
-                    bgPdt[i % 5] + "" + i % 100, i + 1, 0, 0);
+                    bgPdt[i % 5], i + 1, 0, 0);
             session.insert(orderRevenue);
         }
     }

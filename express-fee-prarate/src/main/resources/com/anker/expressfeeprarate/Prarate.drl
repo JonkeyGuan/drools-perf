@@ -107,6 +107,12 @@ then
         setFee(or1.getRate3() * hi.getFee());
     }
     System.out.println("<" + drools.getRule().getName() + "> " + or1.getMarketplace() + " " + or1.getBg_ptd() + " fee is: " + or1.getFee());
+end
+
+rule "get final time spent for perf"
+when
+    not OrderRevenue(fee <= 0.0)
+then
     endTime = System.currentTimeMillis();
     drools.getKnowledgeRuntime().setGlobal("endTime", endTime);
     spentTime = endTime - startTime;
