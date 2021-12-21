@@ -1,0 +1,115 @@
+package com.anker.expressfeeprarate;
+
+global Long startTime;
+global Long endTime;
+global Long spentTime;
+
+rule "total hc for rate1"
+when
+    not Rate1()
+    BasicData(dm: date_month )
+    totalHc : Number( doubleValue() > 0.0 ) from accumulate (HcInfo(date_month == dm, hc: hc), sum(hc)) 
+then
+    startTime = System.currentTimeMillis();
+    drools.getKnowledgeRuntime().setGlobal("startTime", startTime);
+    Rate1 rate1 = new Rate1();
+    rate1.setTotalHc(totalHc.doubleValue());
+    rate1.setDate_month(dm);
+    insert(rate1);
+    System.out.println("<" + drools.getRule().getName()+"> " + "total hc for rate1 is: " + rate1.getTotalHc());
+end
+
+rule "each hc rate1"
+when
+    BasicData(dm: date_month)
+    rate1: Rate1(date_month == dm)
+    hi: HcInfo(date_month == dm, rate1 <= 0.0)
+then
+    modify(hi) {
+        setRate1(hi.getHc()/rate1.getTotalHc())
+    }
+    System.out.println("<" + drools.getRule().getName() + "> " + hi.getBg_pdt() + " rate1 is: " + hi.getRate1());
+end
+
+rule "total None BG rate1 for rate2"
+when
+    not Rate2()
+    BasicData(dm: date_month)
+    totalNoneBGRate1 : Number( doubleValue() > 0.0 ) from 
+       accumulate (HcInfo(date_month == dm, rate1 : rate1 > 0.0, bg_pdt != "None BG"), sum(rate1)) 
+then
+    Rate2 rate2 = new Rate2();
+    rate2.setTotalNoneBGRate1(totalNoneBGRate1.doubleValue());
+    rate2.setDate_month(dm);
+    insert(rate2);
+    System.out.println("<" + drools.getRule().getName()+"> " + "total None BG rate1 for rate2 is: " + rate2.getTotalNoneBGRate1());    
+end
+
+rule "each NoneBG hc rate2"
+when
+    BasicData(dm: date_month)
+    Rate2(date_month == dm, totalNoneBGRate1 : totalNoneBGRate1)
+    HcInfo(date_month == dm, bg_pdt == "None BG", bgRate1 : rate1)
+    hi: HcInfo(date_month == dm, rate2 <= 0.0, bg_pdt != "None BG", rate1 : rate1)
+then
+    modify(hi) {
+        setRate2(rate1 + bgRate1 * rate1 / totalNoneBGRate1);
+    }
+    System.out.println("<" + drools.getRule().getName() + "> " + hi.getBg_pdt() + " rate2 is: " + hi.getRate2());
+end
+
+rule "each NoneBG hc fee"
+when
+    BasicData(dm: date_month, totalFee : amount)
+    hi: HcInfo(date_month == dm, rate2 : rate2 > 0.0, bg_pdt != "None BG", fee <= 0.0)
+then
+    modify(hi) {
+        setFee(totalFee * rate2);
+    }
+    System.out.println("<" + drools.getRule().getName() + "> " + hi.getBg_pdt() + " fee is: " + hi.getFee());
+end
+
+rule "total revenue for each group"
+when
+    BasicData(dm: date_month )
+    or1 : OrderRevenue(date_month == dm)
+    not Rate3(date_month == dm, bg_ptd == or1.bg_ptd)
+    totalAmount : Number( doubleValue() > 0.0 ) 
+        from accumulate (OrderRevenue(date_month == dm, bg_ptd == or1.bg_ptd, amount : amount), sum(amount)) 
+then
+    Rate3 rate3 = new Rate3();
+    rate3.setTotalAmount(totalAmount.doubleValue());
+    rate3.setDate_month(dm);
+    rate3.setBg_ptd(or1.getBg_ptd());
+    insert(rate3);
+    System.out.println("<" + drools.getRule().getName()+"> " + rate3.getBg_ptd() +  " total amount for rate3 is: " + rate3.getTotalAmount());
+end
+
+rule "each revenue rate3"
+when
+    BasicData(dm: date_month)
+    rate3: Rate3(date_month == dm, totalAmount > 0.0, bg_ptd : bg_ptd)
+    or1: OrderRevenue(date_month == dm, rate3 <= 0.0, bg_ptd == bg_ptd)
+then
+    modify(or1) {
+        setRate3(or1.getAmount() / rate3.getTotalAmount());
+    }
+    System.out.println("<" + drools.getRule().getName() + "> " + or1.getMarketplace() + " " + bg_ptd + " rate3 is: " + or1.getRate3());
+end
+
+rule "each revenue fee"
+when
+    BasicData(dm: date_month)
+    or1: OrderRevenue(date_month == dm, fee <= 0.0)
+    hi: HcInfo(date_month == dm, bg_pdt == or1.bg_ptd)
+then
+    modify(or1) {
+        setFee(or1.getRate3() * hi.getFee());
+    }
+    System.out.println("<" + drools.getRule().getName() + "> " + or1.getMarketplace() + " " + or1.getBg_ptd() + " fee is: " + or1.getFee());
+    endTime = System.currentTimeMillis();
+    drools.getKnowledgeRuntime().setGlobal("endTime", endTime);
+    spentTime = endTime - startTime;
+    drools.getKnowledgeRuntime().setGlobal("spentTime", spentTime);
+    System.out.println("calculate spent: " + spentTime);
+end
